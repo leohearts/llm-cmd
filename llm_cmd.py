@@ -1,18 +1,29 @@
 import click
 import llm
 import subprocess
+import os
+import platform
 from prompt_toolkit import PromptSession
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.patch_stdout import patch_stdout
 from pygments.lexers.shell import BashLexer
 
-SYSTEM_PROMPT = """
+SYSTEM_PROMPT = f"""
 Return only the command to be executed as a raw string, no string delimiters
 wrapping it, no yapping, no markdown, no fenced code blocks, what you return
 will be passed to subprocess.check_output() directly.
 For example, if the user asks: undo last git commit
 You return only: git reset --soft HEAD~1
+System: {str(platform.uname())}
 """.strip()
+
+try:
+    if platform.system() == "Linux":
+        SYSTEM_PROMPT = f"""${SYSTEM_PROMPT}
+OS: {[i for i in open("/etc/os-release").readlines() if i.startswith("PRETTY_NAME")][0].strip().replace("PRETTY_NAME=","").strip('"')}
+""".strip()
+except Exception as e:
+    pass
 
 @llm.hookimpl
 def register_commands(cli):
