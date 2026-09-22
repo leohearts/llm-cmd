@@ -1,5 +1,6 @@
 import click
 import llm
+import re
 import subprocess
 import os
 import sys
@@ -26,6 +27,12 @@ OS: {[i for i in open("/etc/os-release").readlines() if i.startswith("PRETTY_NAM
 except Exception as e:
     pass
 
+THINKING_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+def strip_thinking(text):
+    # Thinking models may emit <think>...</think> blocks alongside the command
+    return THINKING_RE.sub("", text).strip()
+
 @llm.hookimpl
 def register_commands(cli):
     @cli.command()
@@ -42,8 +49,9 @@ def register_commands(cli):
         if model_obj.needs_key:
             model_obj.key = llm.get_key(key, model_obj.needs_key, model_obj.key_env_var)
         result = model_obj.prompt(prompt, system=system or SYSTEM_PROMPT)
-        result = '\n'.join([i for i in str(result).splitlines() if not i.startswith('```')])
-        interactive_exec(str(result))
+        result = strip_thinking(str(result))
+        result = '\n'.join([i for i in result.splitlines() if not i.startswith('```')])
+        interactive_exec(result)
 
 def interactive_exec(command):
     session = PromptSession(lexer=PygmentsLexer(BashLexer))
