@@ -1,5 +1,6 @@
 import click
 import llm
+import re
 import subprocess
 from prompt_toolkit import PromptSession
 from prompt_toolkit.lexers import PygmentsLexer
@@ -13,6 +14,12 @@ will be passed to subprocess.check_output() directly.
 For example, if the user asks: undo last git commit
 You return only: git reset --soft HEAD~1
 """.strip()
+
+THINKING_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+def strip_thinking(text):
+    # Thinking models may emit <think>...</think> blocks alongside the command
+    return THINKING_RE.sub("", text).strip()
 
 @llm.hookimpl
 def register_commands(cli):
@@ -30,7 +37,7 @@ def register_commands(cli):
         if model_obj.needs_key:
             model_obj.key = llm.get_key(key, model_obj.needs_key, model_obj.key_env_var)
         result = model_obj.prompt(prompt, system=system or SYSTEM_PROMPT)
-        interactive_exec(str(result))
+        interactive_exec(strip_thinking(str(result)))
 
 def interactive_exec(command):
     session = PromptSession(lexer=PygmentsLexer(BashLexer))
